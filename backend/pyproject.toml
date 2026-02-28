@@ -1,0 +1,10 @@
+[project]
+name = "maths-escape-room"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi[standard]>=0.134.0",
+    "sty>=1.0.6",
+]
