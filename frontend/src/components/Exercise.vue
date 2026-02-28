@@ -18,6 +18,22 @@
                     <v-card-text class="text-background">
                         {{ wasAnswerCorrect ? "Helyes megoldás!" : "A megoldásod sajnos nem helyes" }}
                     </v-card-text>
+                    <div v-if="wasAnswerCorrect" class="ml-5 mr-5 mb-6">
+                        <p class="text-background">
+                            Tipp a következő feladathoz:
+                        </p>
+                        <div v-if="isLoadingTip" class="d-flex align-center justify-center fill-height">
+                            <v-progress-circular
+                            color="grey-lighten-4"
+                            indeterminate
+                            ></v-progress-circular>
+                        </div>
+                        <v-img
+                        v-else
+                        :src="tipSource"
+                        >
+                        </v-img>
+                    </div>
                     <v-card-actions class="justify-center">
                         <v-btn rounded="pill" variant="tonal" color="background" @click="isAnswerCheckPopupOpen = !isAnswerCheckPopupOpen">
                             {{ wasAnswerCorrect ? "Folytatás" : "Újrapróbálkozom"}}
@@ -25,8 +41,11 @@
                     </v-card-actions>
                 </v-card>
             </v-dialog>
-            <v-snackbar v-model="isSnackbarOpen" color="red">
+            <v-snackbar v-model="couldntSendAnswer" color="red">
                 Hiba történt a beküldés során, próbáld újra
+            </v-snackbar>
+            <v-snackbar v-model="couldntGetTip" color="red">
+                Hiba történt a tipp betöltése során, próbálja újra
             </v-snackbar>
         </div>
     </div>
@@ -38,15 +57,53 @@
     })
 
     import { ref } from 'vue';
+
+    const apiBasePath = `http://${window.location.hostname}:8000/`;
+
     const inputText = ref("");
     const isCheckingSolution = ref(false);
-    const isSnackbarOpen = ref(false);
+    const isLoadingTip = ref(false);
+    const couldntSendAnswer = ref(false);
+    const couldntGetTip = ref(false);
     const isAnswerCheckPopupOpen = ref(false);
     const wasAnswerCorrect = ref(false);
+    const tipSource = ref("");
+
+    function getTip() {
+        tipSource.value = "";
+        isLoadingTip.value = true;
+        fetch(new URL("/tip/", apiBasePath), {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                level: props.level,
+                answer: Number(inputText.value)
+            }),
+            signal: AbortSignal.timeout(5000)
+        }).then(async (response) => {
+            if (!response.ok) {
+                tipSource.value = "";
+                couldntGetTip.value = true;
+                isLoadingTip.value = false;
+            }
+            else {
+                const blob = await response.blob();
+                tipSource.value = URL.createObjectURL(blob);
+                isLoadingTip.value = false;
+            }
+        },
+        (error) => {
+            tipSource.value = "";
+            couldntGetTip.value = true;
+            isLoadingTip.value = false;
+        });
+    }
 
     function sendAnswer() {
         isCheckingSolution.value = true;
-        fetch(`http://${window.location.hostname}:8000/check/`, {
+        fetch(new URL("/check/", apiBasePath), {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -60,13 +117,14 @@
             async (response) => {
                 if (!response.ok) {
                     isCheckingSolution.value = false;
-                    isSnackbarOpen.value = true;
+                    couldntSendAnswer.value = true;
                 }
                 const result = await response.json();
                 isCheckingSolution.value = false;
                 console.log(result);
                 if (result.correct) {
                     wasAnswerCorrect.value = true;
+                    getTip();
                 }
                 else {
                     wasAnswerCorrect.value = false;
@@ -75,7 +133,7 @@
             },
             (error) => {
                 isCheckingSolution.value = false;
-                isSnackbarOpen.value = true;
+                couldntSendAnswer.value = true;
             }
         );
     }

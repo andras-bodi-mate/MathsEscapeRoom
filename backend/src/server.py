@@ -1,8 +1,10 @@
-from fastapi import FastAPI, Request, Response, Header
+from fastapi import FastAPI, HTTPException, Request, Response, Header
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+from core import Core
 
 class Answer(BaseModel):
     level: int
@@ -15,6 +17,14 @@ class Server:
         3: 3330,
         4: 4444
     }
+
+    tipPaths = {
+        1: Core.getPath("backend/res/tips/1.png")
+    }
+
+    @staticmethod
+    def checkAnswer(answer: Answer):
+        return answer.level in Server.solutions and Server.solutions[answer.level] == answer.answer
 
     def __init__(self):
         self.app = FastAPI()
@@ -33,8 +43,15 @@ class Server:
 
         @self.app.post("/check/")
         async def checkAnswer(answer: Answer):
-            if answer.level in Server.solutions and Server.solutions[answer.level] == answer.answer:
+            if Server.checkAnswer(answer):
                 response = {"correct": True}
             else:
                 response = {"correct": False}
             return JSONResponse(jsonable_encoder(response))
+        
+        @self.app.post("/tip/")
+        async def getTip(answer: Answer):
+            if Server.checkAnswer(answer) and answer.level in Server.tipPaths:
+                return FileResponse(Server.tipPaths[answer.level])
+            else:
+                raise HTTPException(status_code = 404, detail = "Couldn't find tip")
