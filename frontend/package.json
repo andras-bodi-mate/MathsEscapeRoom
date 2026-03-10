@@ -18,6 +18,7 @@
     "@fontsource/roboto": "^5.2.9",
     "@mdi/font": "7.4.47",
     "vue": "^3.5.26",
+    "vue-confetti-explosion": "^1.0.2",
     "vue-router": "^5.0.3",
     "vuetify": "^4.0.0"
   },

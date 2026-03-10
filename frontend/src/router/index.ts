@@ -1,10 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import type { RouteLocationNormalized } from 'vue-router'
+import type { RouteLocationNormalized } from 'vue-router';
 import ExerciseView from '@/views/ExerciseView.vue';
+import RegistrationView from '@/components/Registration.vue';
 
 const routes = [
   {
-    path: '/feladat/:level(\\d+)',
+    path: "/",
+    redirect: "/regisztracio"
+  },
+  {
+    path: "/regisztracio",
+    component: RegistrationView
+  },
+  {
+    path: "/feladat/:level(\\d+)",
     component: ExerciseView,
     props: (route: RouteLocationNormalized) => ({
       level: Number(route.params.level)

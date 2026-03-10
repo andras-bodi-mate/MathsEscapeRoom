@@ -5,26 +5,42 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from core import Core
+from team import Team, Difficulty
 
 class Answer(BaseModel):
     level: int
     answer: int
 
+class ProblemQuery(BaseModel):
+    level: int
+
+class TeamNameAvailabilityQuery(BaseModel):
+    teamName: str
+
+class TeamRegistrationInfo(BaseModel):
+    teamName: str
+    difficulty: Difficulty
+
 class Server:
     solutions = {
-        1: 1000,
-        2: 2200,
-        3: 3330,
-        4: 4444
-    }
-
-    tipPaths = {
-        1: Core.getPath("backend/res/tips/1.png")
+        1: 4172,
+        2: 6202,
+        3: 3745,
+        4: 9513,
+        5: 1144,
+        6: 5865,
+        7: 4242,
+        8: 7942
     }
 
     @staticmethod
-    def checkAnswer(answer: Answer):
-        return answer.level in Server.solutions and Server.solutions[answer.level] == answer.answer
+    def checkToken(token: str):
+        if token not in Team.uuidTeamMap:
+            raise HTTPException(status_code = 404, detail = "Invalid token")
+
+    @staticmethod
+    def checkAnswer(team: Team, answer: Answer):
+        return team.currentLevel >= answer.level and answer.level in Server.solutions and Server.solutions[answer.level] == answer.answer
 
     def __init__(self):
         self.app = FastAPI()
@@ -41,17 +57,50 @@ class Server:
             allow_headers = ["*"],
         )
 
-        @self.app.post("/check/")
-        async def checkAnswer(answer: Answer):
-            if Server.checkAnswer(answer):
+        self.teams: list[Team] = []
+
+        @self.app.get("/info")
+        async def getTeamInfo(token: str = Header(alias = "Authorization")):
+            Server.checkToken(token)
+            team = Team.uuidTeamMap[token]
+            return {"teamName": team.name, "difficulty": team.difficulty, "currentLevel": team.currentLevel}
+
+        @self.app.post("/available")
+        async def checkAvailability(query: TeamNameAvailabilityQuery):
+            for team in self.teams:
+                if team.name == query.teamName:
+                    return {"available": False}
+            return {"available": True}
+
+        @self.app.post("/register")
+        async def register(teamInfo: TeamRegistrationInfo):
+            team = Team(teamInfo.teamName, teamInfo.difficulty)
+            self.teams.append(team)
+            return {"token": team.uuid}
+
+        @self.app.post("/check")
+        async def checkAnswer(answer: Answer, token: str = Header(alias = "Authorization")):
+            Server.checkToken(token)
+            team = Team.uuidTeamMap[token]
+
+            if Server.checkAnswer(team, answer):
                 response = {"correct": True}
+                team.currentLevel = answer.level + 1
             else:
                 response = {"correct": False}
             return JSONResponse(jsonable_encoder(response))
         
-        @self.app.post("/tip/")
-        async def getTip(answer: Answer):
-            if Server.checkAnswer(answer) and answer.level in Server.tipPaths:
-                return FileResponse(Server.tipPaths[answer.level])
+        @self.app.post("/problem")
+        async def getProblem(problemQuery: ProblemQuery, token: str = Header(alias = "Authorization")):
+            Server.checkToken(token)
+            team = Team.uuidTeamMap[token]
+
+            if problemQuery.level > team.currentLevel:
+                raise HTTPException(status_code = 403)
+
+            problemPaths = list(Core.getPath(f"backend/res/problems").glob(f"{problemQuery.level}.*"))
+
+            if len(problemPaths) > 0 and problemPaths[0].exists():
+                return FileResponse(problemPaths[0])
             else:
-                raise HTTPException(status_code = 404, detail = "Couldn't find tip")
+                raise HTTPException(status_code = 404, detail = "Couldn't find problem")
