@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteLocationNormalized } from 'vue-router';
 import ExerciseView from '@/views/ExerciseView.vue';
 import RegistrationView from '@/components/Registration.vue';
+import ResultsView from '@/views/ResultsView.vue';
 
 const routes = [
   {
@@ -11,6 +12,10 @@ const routes = [
   {
     path: "/regisztracio",
     component: RegistrationView
+  },
+  {
+    path: "/eredmenyek",
+    component: ResultsView
   },
   {
     path: "/feladat/:level(\\d+)",

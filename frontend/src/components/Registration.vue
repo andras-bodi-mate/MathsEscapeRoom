@@ -46,11 +46,7 @@
 
 <script setup>
     import { ref, watch } from 'vue';
-
-    const Difficulty = {
-        Easy: 0,
-        Hard: 1
-    }
+    import { Difficulty } from "@/constants/common.ts";
 
     const nameRules = [
         v => !!v || "A csapatnevet kötelező kitölteni",

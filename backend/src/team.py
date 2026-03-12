@@ -12,6 +12,7 @@ class Team:
         self.uuid = str(uuid.uuid4())
         self.name = name
         self.difficulty = difficulty
+        self.lastLevel = 6 if self.difficulty == Difficulty.Easy else 8
         self.currentLevel = 1
 
         Team.uuidTeamMap[self.uuid] = self

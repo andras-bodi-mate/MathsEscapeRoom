@@ -1,3 +1,4 @@
+from enum import Enum
 from fastapi import FastAPI, HTTPException, Request, Response, Header
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, FileResponse
@@ -6,6 +7,11 @@ from pydantic import BaseModel
 
 from core import Core
 from team import Team, Difficulty
+
+class AnswerResponse(Enum):
+    Wrong = 0
+    Correct = 1
+    Finished = 2
 
 class Answer(BaseModel):
     level: int
@@ -65,6 +71,15 @@ class Server:
             team = Team.uuidTeamMap[token]
             return {"teamName": team.name, "difficulty": team.difficulty, "currentLevel": team.currentLevel}
 
+        @self.app.get("/results")
+        async def getTeamResults():
+            numFinishedTeams = 0
+            for team in self.teams:
+                finishLevel = 6 if team.difficulty == Difficulty.Easy else 8
+                if team.currentLevel - 1 == finishLevel:
+                    numFinishedTeams += 1
+            return {"numTeams": len(self.teams), "numFinishedTeams": numFinishedTeams}
+
         @self.app.post("/available")
         async def checkAvailability(query: TeamNameAvailabilityQuery):
             for team in self.teams:
@@ -84,10 +99,13 @@ class Server:
             team = Team.uuidTeamMap[token]
 
             if Server.checkAnswer(team, answer):
-                response = {"correct": True}
                 team.currentLevel = answer.level + 1
+                if answer.level == team.lastLevel:
+                    response = {"result": AnswerResponse.Finished}
+                else:
+                    response = {"result": AnswerResponse.Correct}
             else:
-                response = {"correct": False}
+                response = {"result": AnswerResponse.Wrong}
             return JSONResponse(jsonable_encoder(response))
         
         @self.app.post("/problem")

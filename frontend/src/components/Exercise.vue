@@ -3,8 +3,9 @@
         <h1 class="ma-0">{{ level }}. Feladat</h1>
         <div v-if="teamInfo" class="d-flex flex-column align-center justify-top mt-2 ">
             <p class="ma-0">Csapatnév: {{ teamInfo.teamName }}</p>
-            <p class="ma-0">Kiválasztott nehézség: {{ teamInfo.difficulty === Difficulty.Easy ? "Könnyebb" : "Nehezebb" }}</p>
+            <p class="ma-0">Kiválasztott nehézség: {{ difficultyDescriptions[teamInfo.difficulty] }}</p>
         </div>
+        <v-progress-circular v-if="isLoadingTeamInfo" indeterminate />
         <div v-if="isLoadingProblem" class="d-flex align-center justify-center fill-height">
             <v-progress-circular
             color="grey-lighten-4"
@@ -12,6 +13,7 @@
             ></v-progress-circular>
         </div>
         <v-img
+            v-else
             class="ma-5"
             width="500"
             rounded="xl"
@@ -38,21 +40,10 @@
                 Beküldés
             </v-btn>
             <v-dialog v-model="isAnswerCheckPopupOpen" max-width="800px">
-                <v-card rounded="xl" :color="wasAnswerCorrect ? 'success' : 'red'">
+                <v-card rounded="xl" :color="answerResponse === AnswerResponse.Wrong ? 'red' : 'success'">
                     <v-card-text class="text-background">
-                        {{ wasAnswerCorrect ? "Helyes megoldás!" : "A megoldásod sajnos nem helyes" }}
+                        {{ answerCheckPopupText[answerResponse] }}
                     </v-card-text>
-                    <div v-if="wasAnswerCorrect" class="ml-5 mr-5 mb-6">
-                        <Teleport to="body">
-                            <div class="position-absolute confetti-wrapper">
-                                <ConfettiExplosion
-                                    v-if="doShowConfetti"
-                                    :force="0.8"
-                                    :stageWidth="confettiStageWidth"
-                                />
-                            </div>
-                        </Teleport>
-                    </div>
                     <v-card-actions class="justify-center">
                         <v-btn
                             rounded="pill"
@@ -60,7 +51,16 @@
                             color="background"
                             @click="cardButtonClicked()"
                         >
-                            {{ wasAnswerCorrect ? "Folytatás" : "Újrapróbálkozom"}}
+                            {{ answerCheckButtonLabel[answerResponse] }}
+                        </v-btn>
+                        <v-btn
+                            v-if="level >= 6 && answerResponse === AnswerResponse.Wrong"
+                            rounded="pill"
+                            variant="tonal"
+                            color="background"
+                            @click="giveUp()"
+                        >
+                            Feladom
                         </v-btn>
                     </v-card-actions>
                 </v-card>
@@ -77,13 +77,20 @@
         level: Number
     })
 
-    import { onMounted, ref, watch } from 'vue';
-    import ConfettiExplosion from "vue-confetti-explosion";
+    import { onMounted, ref } from 'vue';
+    import { AnswerResponse, difficultyDescriptions } from "@/constants/common";
 
-    const Difficulty = {
-        Easy: 0,
-        Hard: 1
-    }
+    let answerCheckPopupText = {
+        [AnswerResponse.Wrong]: "A megoldásod sajnos nem helyes",
+        [AnswerResponse.Correct]: "Helyes megoldás!",
+        [AnswerResponse.Finished]: "Helyes megoldás! Ezzel megoldottátok az összes feladatot!"
+    };
+
+    let answerCheckButtonLabel = {
+        [AnswerResponse.Wrong]: "Újrapróbálkozom",
+        [AnswerResponse.Correct]: "Folytatás",
+        [AnswerResponse.Finished]: "Tovább"
+    };
 
     const apiBasePath = `${window.location.protocol}//${window.location.hostname}:8000/`;
     const teamToken = localStorage.getItem("teamToken");
@@ -97,22 +104,16 @@
     const inputText = ref("");
     const isCheckingSolution = ref(false);
     const isLoadingProblem = ref(false);
+    const isLoadingTeamInfo = ref(false);
     const isAnswerCheckPopupOpen = ref(false);
-    const wasAnswerCorrect = ref(false);
+    const answerResponse = ref(AnswerResponse.Wrong);
     const problemSource = ref("");
-    const doShowConfetti = ref(false);
-    const confettiStageWidth = ref(getConfettiStageWidth());
     const didEncounterError = ref(false);
     const errorMessage = ref("");
 
     onMounted(async () => {
         await getTeamInfo();
         await getProblem();
-    });
-    
-    watch(isAnswerCheckPopupOpen, (val) => {
-        document.documentElement.classList.toggle('no-scroll', val);
-        document.body.classList.toggle('no-scroll', val);
     });
 
     function couldntGetProblem() {
@@ -131,15 +132,11 @@
         errorMessage.value = "Hiba történt a csapat lekérdezése közben, frissítsd újra az oldalt";
         didEncounterError.value = true;
         disableInput.value = true;
-    }
-
-    function getConfettiStageWidth() {
-        const aspectRatio = window.innerWidth / window.innerHeight;
-        const scale = 1 / Math.pow(aspectRatio, 0.4) + 0.2;
-        return window.innerWidth * scale;
+        isLoadingTeamInfo.value = false;
     }
 
     async function getTeamInfo() {
+        isLoadingTeamInfo.value = true;
         await fetch(new URL("/info", apiBasePath), {
             method: "GET",
             headers: {
@@ -158,6 +155,7 @@
                 }
                 teamInfo.value = result;
                 console.log(result);
+                isLoadingTeamInfo.value = false;
             }
         },
         (error) => {
@@ -166,7 +164,6 @@
     }
 
     async function getProblem() {
-        doShowConfetti.value = false;
         problemSource.value = "";
         isLoadingProblem.value = true;
         await fetch(new URL("/problem", apiBasePath), {
@@ -186,7 +183,6 @@
             else {
                 const blob = await response.blob();
                 problemSource.value = URL.createObjectURL(blob);
-                confettiStageWidth.value = getConfettiStageWidth();
                 isLoadingProblem.value = false;
             }
         },
@@ -213,15 +209,12 @@
                 if (!response.ok) {
                     isCheckingSolution.value = false;
                     couldntSendAnswer();
+                    return;
                 }
                 const result = await response.json();
                 isCheckingSolution.value = false;
-                if (result.correct) {
-                    wasAnswerCorrect.value = true;
-                }
-                else {
-                    wasAnswerCorrect.value = false;
-                }
+                answerResponse.value = result.result;
+                console.log("Answer response:", answerResponse.value);
                 isAnswerCheckPopupOpen.value = true;
             },
             (error) => {
@@ -232,26 +225,18 @@
     }
 
     function cardButtonClicked() {
-        if (wasAnswerCorrect.value) {
+        if (answerResponse.value === AnswerResponse.Correct) {
             window.location.href = `/feladat/${props.level + 1}`;
+        }
+        else if (answerResponse.value === AnswerResponse.Finished) {
+            window.location.href = "/eredmenyek";
         }
         else {
             isAnswerCheckPopupOpen.value = !isAnswerCheckPopupOpen.value;
         }
     }
+
+    function giveUp() {
+        window.location.href = "/eredmenyek";
+    }
 </script>
-
-<style>
-.no-scroll {
-    overflow: hidden !important;
-    height: 100%;
-}
-
-.confetti-wrapper {
-    top: 50%;
-    left: 50%;
-    z-index: 9999;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-}
-</style>
