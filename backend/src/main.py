@@ -9,7 +9,7 @@ from core import Core
 def main():
     Logger.logInfo("Program started")
     server = Server()
-    uvicorn.run(server.app, host = "0.0.0.0", port = 8000)
+    uvicorn.run(server.app, host = "0.0.0.0", port = 3501)
 
 if __name__ == "__main__":
     main()

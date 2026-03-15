@@ -46,7 +46,7 @@
 
 <script setup>
     import { ref, watch } from 'vue';
-    import { Difficulty } from "@/constants/common.ts";
+    import { Difficulty, getApiBasePath } from "@/common/common";
 
     const nameRules = [
         v => !!v || "A csapatnevet kötelező kitölteni",
@@ -64,7 +64,7 @@
         {label: "Nehezebb (8 feladat)", value: Difficulty.Hard}
     ]
 
-    const apiBasePath = `${window.location.protocol}//${window.location.hostname}:8000/`;
+    const apiBasePath = getApiBasePath();
 
     const form = ref(null);
     const teamName = ref("");

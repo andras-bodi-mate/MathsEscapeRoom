@@ -78,7 +78,7 @@
     })
 
     import { onMounted, ref } from 'vue';
-    import { AnswerResponse, difficultyDescriptions } from "@/constants/common";
+    import { AnswerResponse, difficultyDescriptions, getApiBasePath } from "@/common/common";
 
     let answerCheckPopupText = {
         [AnswerResponse.Wrong]: "A megoldásod sajnos nem helyes",
@@ -92,7 +92,7 @@
         [AnswerResponse.Finished]: "Tovább"
     };
 
-    const apiBasePath = `${window.location.protocol}//${window.location.hostname}:8000/`;
+    const apiBasePath = getApiBasePath();
     const teamToken = localStorage.getItem("teamToken");
 
     if (teamToken === null) {

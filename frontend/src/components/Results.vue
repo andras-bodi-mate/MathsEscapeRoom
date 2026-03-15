@@ -39,10 +39,10 @@
 </template>
 <script setup>
     import { ref, onMounted, nextTick } from 'vue';
-    import { Difficulty, difficultyDescriptions, difficultyNumLevels } from "@/constants/common";
+    import { Difficulty, difficultyDescriptions, difficultyNumLevels, getApiBasePath } from "@/common/common";
     import ConfettiExplosion from "vue-confetti-explosion";
 
-    const apiBasePath = `${window.location.protocol}//${window.location.hostname}:8000/`;
+    const apiBasePath = getApiBasePath();
     const teamToken = localStorage.getItem("teamToken");
 
     if (teamToken === null) {
