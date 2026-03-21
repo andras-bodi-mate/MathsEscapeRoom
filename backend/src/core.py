@@ -9,4 +9,4 @@ class Core:
         if isinstance(path, Path) and path.exists():
             return path
         else:
-            return Core.projectDir / PurePosixPath(path)
+            return (Core.projectDir / PurePosixPath(path)).resolve()

@@ -1,9 +1,13 @@
+import sqlite3
 from enum import Enum
-from fastapi import FastAPI, HTTPException, Request, Response, Header
+from pathlib import Path
+from fastapi import FastAPI, HTTPException, Header, Depends, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
+from sqlmodel import SQLModel, Session, create_engine, select, exists
 
 from core import Core
 from team import Team, Difficulty
@@ -39,14 +43,33 @@ class Server:
         8: 7942
     }
 
-    @staticmethod
-    def checkToken(token: str):
-        if token not in Team.uuidTeamMap:
-            raise HTTPException(status_code = 404, detail = "Invalid token")
+    adminPanelUsername = "foldes-pi-nap-admin"
+    adminPanelPassword = "pi-nap-31415"
 
+    @staticmethod
+    def checkToken(session: Session, token: str):
+        query = select(exists().where(Team.uuid == token))
+        result = session.exec(query).one()
+        if not result:
+            raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Invalid token")
+
+    @staticmethod
+    def getTeamFromToken(session: Session, token: str):
+        team = session.get(Team, token)
+        if not team:
+            raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Invalid token")
+        
+        return team
+    
     @staticmethod
     def checkAnswer(team: Team, answer: Answer):
         return team.currentLevel >= answer.level and answer.level in Server.solutions and Server.solutions[answer.level] == answer.answer
+    
+    @staticmethod
+    def getTeams(session: Session):
+        statement = select(Team)
+        teams = session.exec(statement).all()
+        return teams
 
     def __init__(self):
         self.app = FastAPI()
@@ -54,71 +77,124 @@ class Server:
         self.app.add_middleware(
             CORSMiddleware,
             allow_origins = [
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "*"
+                "http://localhost:3500",
+                "http://127.0.0.1:3500",
+                "http://212.48.252.191:3500"
             ],
             allow_credentials = True,
             allow_methods = ["*"],
             allow_headers = ["*"],
         )
 
-        self.teams: list[Team] = []
+        self.databasePath = Core.getPath("backend/data/database.db")
+        self.databasePath.parent.mkdir(parents = True, exist_ok = True)
+        self.databaseEngine = create_engine(f"sqlite:///{self.databasePath.as_posix()}", echo = True)
+        #SQLModel.metadata.drop_all(self.databaseEngine)
+        SQLModel.metadata.create_all(self.databaseEngine)
+ 
+        self.security = HTTPBasic()
+
+        def authenticate(self, credentials: HTTPBasicCredentials = Depends(self.security)):
+            if credentials.username != Server.adminPanelUsername or credentials.password != Server.adminPanelPassword:
+                raise HTTPException(
+                    status_code = status.HTTP_401_UNAUTHORIZED,
+                    detail = "Incorrect username or password",
+                    headers = {"WWW-Authenticate": "Basic"},
+                )
 
         @self.app.get("/info")
         async def getTeamInfo(token: str = Header(alias = "Authorization")):
-            Server.checkToken(token)
-            team = Team.uuidTeamMap[token]
-            return {"teamName": team.name, "difficulty": team.difficulty, "currentLevel": team.currentLevel}
+            with Session(self.databaseEngine) as session:
+                Server.checkToken(session, token)
+                query = select(Team).where(Team.uuid == token)
+                team = session.exec(query).one()
+            
+            return {"teamName": team.name, "difficulty": team.getDifficulty(), "currentLevel": team.currentLevel}
 
         @self.app.get("/results")
         async def getTeamResults():
-            numFinishedTeams = 0
-            for team in self.teams:
-                finishLevel = 6 if team.difficulty == Difficulty.Easy else 8
-                if team.currentLevel - 1 == finishLevel:
-                    numFinishedTeams += 1
-            return {"numTeams": len(self.teams), "numFinishedTeams": numFinishedTeams}
+            with Session(self.databaseEngine) as session:
+                teams = Server.getTeams(session)
+
+                numFinishedTeams = 0
+                for team in teams:
+                    finishLevel = 6 if team.getDifficulty() == Difficulty.Easy else 8
+                    if team.currentLevel - 1 == finishLevel:
+                        numFinishedTeams += 1
+
+            return {"numTeams": len(teams), "numFinishedTeams": numFinishedTeams}
 
         @self.app.post("/available")
         async def checkAvailability(query: TeamNameAvailabilityQuery):
-            for team in self.teams:
-                if team.name == query.teamName:
-                    return {"available": False}
-            return {"available": True}
+            with Session(self.databaseEngine) as session:
+                statement = select(exists().where(Team.name == query.teamName))
+                isNameTaken = session.exec(statement).one()
+
+            if isNameTaken:
+                return {"available": False}
+            else:
+                return {"available": True}
 
         @self.app.post("/register")
         async def register(teamInfo: TeamRegistrationInfo):
-            team = Team(teamInfo.teamName, teamInfo.difficulty)
-            self.teams.append(team)
-            return {"token": team.uuid}
+            with Session(self.databaseEngine) as session:
+                team = Team(name = teamInfo.teamName, difficulty = teamInfo.difficulty.value)
+                session.add(team)
+                session.commit()
+
+                teamUuid = team.uuid
+
+            return {"token": teamUuid}
 
         @self.app.post("/check")
         async def checkAnswer(answer: Answer, token: str = Header(alias = "Authorization")):
-            Server.checkToken(token)
-            team = Team.uuidTeamMap[token]
+            with Session(self.databaseEngine) as session:
+                Server.checkToken(session, token)
+                team = Server.getTeamFromToken(session, token)
 
-            if Server.checkAnswer(team, answer):
-                team.currentLevel = answer.level + 1
-                if answer.level == team.lastLevel:
-                    response = {"result": AnswerResponse.Finished}
+                if answer.level > team.currentLevel:
+                    raise HTTPException(status_code = status.HTTP_403_FORBIDDEN, detail = "The team hasn't reached that level yet")
+
+                if Server.checkAnswer(team, answer):
+                    team.currentLevel = answer.level + 1
+                    if answer.level == team.getLastLevel():
+                        response = {"result": AnswerResponse.Finished}
+                    else:
+                        response = {"result": AnswerResponse.Correct}
                 else:
-                    response = {"result": AnswerResponse.Correct}
-            else:
-                response = {"result": AnswerResponse.Wrong}
+                    response = {"result": AnswerResponse.Wrong}
+
+                session.add(team)
+                session.commit()
+
             return JSONResponse(jsonable_encoder(response))
         
         @self.app.post("/problem")
         async def getProblem(problemQuery: ProblemQuery, token: str = Header(alias = "Authorization")):
-            Server.checkToken(token)
-            team = Team.uuidTeamMap[token]
+            with Session(self.databaseEngine) as session:
+                Server.checkToken(session, token)
+                team = Server.getTeamFromToken(session, token)
 
-            if problemQuery.level > team.currentLevel:
-                raise HTTPException(status_code = 403)
+                if problemQuery.level > team.currentLevel:
+                    raise HTTPException(status_code = status.HTTP_403_FORBIDDEN)
 
-            problemPaths = list(Core.getPath(f"backend/res/problems").glob(f"{problemQuery.level}.*"))
+                problemPaths = list(Core.getPath(f"backend/res/problems").glob(f"{problemQuery.level}.*"))
 
             if len(problemPaths) > 0 and problemPaths[0].exists():
                 return FileResponse(problemPaths[0])
             else:
-                raise HTTPException(status_code = 404, detail = "Couldn't find problem")
+                raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Couldn't find problem")
+        
+        @self.app.get("/teams")
+        async def getTeams():
+            with Session(self.databaseEngine) as session:
+                teams = Server.getTeams(session)
+
+            return [
+                {
+                    "name": team.name,
+                    "difficulty": team.getDifficulty(),
+                    "currentLevel": team.currentLevel,
+                    "lastLevel": team.getLastLevel()
+                }
+            for team in teams]

@@ -1,18 +1,19 @@
 import uuid
 from enum import Enum
+from sqlmodel import SQLModel, Field
 
 class Difficulty(Enum):
     Easy = 0
     Hard = 1
 
-class Team:
-    uuidTeamMap: dict[str, "Team"] = {}
+class Team(SQLModel, table = True):
+    uuid: str = Field(default_factory = lambda: str(uuid.uuid4()), primary_key = True)
+    name: str = Field(unique = True)
+    difficulty: int
+    currentLevel: int = Field(default = 1, min = 1)
 
-    def __init__(self, name: str, difficulty: Difficulty):
-        self.uuid = str(uuid.uuid4())
-        self.name = name
-        self.difficulty = difficulty
-        self.lastLevel = 6 if self.difficulty == Difficulty.Easy else 8
-        self.currentLevel = 1
+    def getDifficulty(self):
+        return Difficulty(self.difficulty)
 
-        Team.uuidTeamMap[self.uuid] = self
+    def getLastLevel(self):
+        return 6 if self.getDifficulty() == Difficulty.Easy else 8
