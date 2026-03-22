@@ -46,23 +46,7 @@
 
 <script setup>
     import { ref, watch } from 'vue';
-    import { Difficulty, getApiBasePath } from "@/common/common";
-
-    const nameRules = [
-        v => !!v || "A csapatnevet kötelező kitölteni",
-        v => v.trim().length > 0 || "A csapatnév nem lehet csak szóköz",
-        v => v === v.trim() || "A csapatnév nem kezdődhet vagy végződhet szóközzel",
-        v => v.length <= 25 || "Maximum 25 karakter"
-    ];
-
-    const difficultyRules = [
-        v => v !== null || "Kötelező kiválasztani nehézséget"
-    ]
-
-    const difficultyItems = [
-        {label: "Könnyebb (6 feladat)", value: Difficulty.Easy},
-        {label: "Nehezebb (8 feladat)", value: Difficulty.Hard}
-    ]
+    import { getApiBasePath, nameRules, difficultyRules, difficultyItems, checkTeamNameAvailability } from "@/common/common";
 
     const apiBasePath = getApiBasePath();
 
@@ -79,40 +63,28 @@
         teamNameAsyncError.value = ""
     })
 
-    async function checkTeamNameAvailability() {
-        return await fetch(new URL("/available", apiBasePath), {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                teamName: teamName.value
-            }),
-            signal: AbortSignal.timeout(5000)
-        }).then(async (response) => {
-            if (!response.ok) {
-                errorMessage.value = "Hiba történt a csapatnév ellenőrzése során, próbáld meg újra"
-                didEncounterError.value = true;
-                return false;
-            }
-            else {
-                const result = await response.json();
-                if (result.available) {
+    async function handleTeamNameAvailability() {
+        let wasAvailable = false;
+        await checkTeamNameAvailability(teamName.value).then(
+            (available) => {
+                if (available) {
                     teamNameAsyncError.value = "";
-                    return true;
+                    wasAvailable = true;
                 }
                 else {
                     teamNameAsyncError.value = "Ez a csapatnév már foglalt";
                     isRegistrationLoading.value = false;
-                    return false;
+                    wasAvailable = false;
                 }
             }
-        },
-        (error) => {
-            errorMessage.value = "Hiba történt a csapatnév ellenőrzése során, próbáld meg újra"
-            didEncounterError.value = true;
-            return false;
-        });
+        ).catch(
+            (reason) => {
+                errorMessage.value = "Hiba történt a csapatnév ellenőrzése során, próbáld meg újra"
+                didEncounterError.value = true;
+                wasAvailable = false;
+            }
+        )
+        return wasAvailable;
     };
 
     async function sendRegistration() {
@@ -155,12 +127,11 @@
         }
         isRegistrationLoading.value = true;
 
-        const isTeamNameAvailable = await checkTeamNameAvailability();
+        const isTeamNameAvailable = await handleTeamNameAvailability();
         if (!isTeamNameAvailable) {
             isRegistrationLoading.value = false;
             return;
         }
-
 
         await sendRegistration();
     }

@@ -10,7 +10,7 @@ class Team(SQLModel, table = True):
     uuid: str = Field(default_factory = lambda: str(uuid.uuid4()), primary_key = True)
     name: str = Field(unique = True)
     difficulty: int
-    currentLevel: int = Field(default = 1, min = 1)
+    currentLevel: int = 1
 
     def getDifficulty(self):
         return Difficulty(self.difficulty)

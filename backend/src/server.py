@@ -6,6 +6,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 from sqlmodel import SQLModel, Session, create_engine, select, exists
 
@@ -30,6 +32,15 @@ class TeamNameAvailabilityQuery(BaseModel):
 class TeamRegistrationInfo(BaseModel):
     teamName: str
     difficulty: Difficulty
+
+class TeamDeletionInfo(BaseModel):
+    teamUuid: str
+
+class TeamModificationInfo(BaseModel):
+    teamUuid: str
+    newTeamName: str
+    newDifficulty: Difficulty
+    newLevel: int
 
 class Server:
     solutions = {
@@ -184,6 +195,23 @@ class Server:
                 return FileResponse(problemPaths[0])
             else:
                 raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Couldn't find problem")
+            
+        @self.app.post("/delete")
+        async def deleteTeam(teamDeletionRequest: TeamDeletionInfo):
+            with Session(self.databaseEngine) as session:
+                team = Server.getTeamFromToken(session, teamDeletionRequest.teamUuid)
+                session.delete(team)
+                session.commit()
+
+        @self.app.post("/modify")
+        async def modifyTeam(teamModificationRequest: TeamModificationInfo):
+            with Session(self.databaseEngine) as session:
+                team = Server.getTeamFromToken(session, teamModificationRequest.teamUuid)
+                team.name = teamModificationRequest.newTeamName
+                team.difficulty = teamModificationRequest.newDifficulty.value
+                team.currentLevel = teamModificationRequest.newLevel
+                session.add(team)
+                session.commit()
         
         @self.app.get("/teams")
         async def getTeams():
@@ -192,9 +220,15 @@ class Server:
 
             return [
                 {
+                    "uuid": team.uuid,
                     "name": team.name,
                     "difficulty": team.getDifficulty(),
                     "currentLevel": team.currentLevel,
                     "lastLevel": team.getLastLevel()
                 }
             for team in teams]
+        
+        @self.app.exception_handler(RequestValidationError)
+        async def validation_exception_handler(request, exc):
+            print(f"The client sent invalid data!: {exc}")
+            return await request_validation_exception_handler(request, exc)
