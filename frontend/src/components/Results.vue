@@ -171,7 +171,7 @@
                 const result = await response.json();
 
                 teamResults.value = result;
-                isLoadingTeamResults.value = false;
+                isLoadingTeamInfo.value = false;
             }
         },
         (error) => {

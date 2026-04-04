@@ -6,7 +6,7 @@
             <p class="ma-0">Kiválasztott nehézség: {{ difficultyDescriptions[teamInfo.difficulty] }}</p>
         </div>
         <v-progress-circular v-if="isLoadingTeamInfo" indeterminate />
-        <div v-if="isLoadingProblem" class="d-flex align-center justify-center fill-height">
+        <div v-if="isLoadingExercise" class="d-flex align-center justify-center fill-height">
             <v-progress-circular
             color="grey-lighten-4"
             indeterminate
@@ -17,7 +17,7 @@
             class="ma-5"
             width="500"
             rounded="xl"
-            :src="problemSource"
+            :src="exerciseSource"
             fit
         />
         <h3 class="ma-0 mt-5">Megoldás:</h3>
@@ -103,24 +103,25 @@
     const disableInput = ref(false);
     const inputText = ref("");
     const isCheckingSolution = ref(false);
-    const isLoadingProblem = ref(false);
+    const isLoadingExercise = ref(false);
     const isLoadingTeamInfo = ref(false);
     const isAnswerCheckPopupOpen = ref(false);
     const answerResponse = ref(AnswerResponse.Wrong);
-    const problemSource = ref("");
+    const exerciseSource = ref("");
+    const exerciseTitle = ref("");
     const didEncounterError = ref(false);
     const errorMessage = ref("");
 
     onMounted(async () => {
         await getTeamInfo();
-        await getProblem();
+        await getExercise();
     });
 
-    function couldntGetProblem() {
+    function couldntGetExercise() {
         errorMessage.value = "Hiba történt a feladat betöltése során, frissítsd újra az oldalt";
         didEncounterError.value = true;
-        isLoadingProblem.value = false;
-        problemSource.value = "";
+        isLoadingExercise.value = false;
+        exerciseSource.value = "";
     }
 
     function couldntSendAnswer() {
@@ -149,7 +150,7 @@
             }
             else {
                 const result = await response.json();
-                isLoadingProblem.value = false;
+                isLoadingExercise.value = false;
                 if (props.level > result.currentLevel) {
                     window.location.href = `/feladat/${result.currentLevel}`;
                 }
@@ -163,10 +164,10 @@
         });
     }
 
-    async function getProblem() {
-        problemSource.value = "";
-        isLoadingProblem.value = true;
-        await fetch(new URL("/problem", apiBasePath), {
+    async function getExercise() {
+        exerciseSource.value = "";
+        isLoadingExercise.value = true;
+        await fetch(new URL("/exercise", apiBasePath), {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -178,16 +179,16 @@
             signal: AbortSignal.timeout(5000)
         }).then(async (response) => {
             if (!response.ok) {
-                couldntGetProblem();
+                couldntGetExercise();
             }
             else {
                 const blob = await response.blob();
-                problemSource.value = URL.createObjectURL(blob);
-                isLoadingProblem.value = false;
+                exerciseSource.value = URL.createObjectURL(blob);
+                isLoadingExercise.value = false;
             }
         },
         (error) => {
-            couldntGetProblem();
+            couldntGetExercise();
         });
     }
 

@@ -17,9 +17,11 @@
   "dependencies": {
     "@fontsource/roboto": "^5.2.9",
     "@mdi/font": "7.4.47",
+    "http-status-codes": "^2.3.0",
     "vue": "^3.5.26",
     "vue-confetti-explosion": "^1.0.2",
     "vue-router": "^5.0.3",
+    "vue3-shortkey": "^4.0.0",
     "vuetify": "^4.0.0"
   },
   "devDependencies": {

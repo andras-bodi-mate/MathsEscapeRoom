@@ -47,6 +47,7 @@
 <script setup>
     import { ref, watch } from 'vue';
     import { getApiBasePath, nameRules, difficultyRules, difficultyItems, checkTeamNameAvailability } from "@/common/common";
+    import { StatusCodes } from 'http-status-codes'; 
 
     const apiBasePath = getApiBasePath();
 
@@ -100,7 +101,12 @@
             signal: AbortSignal.timeout(5000)
         }).then(async (response) => {
             if (!response.ok) {
-                errorMessage.value = "Hiba történt a csapat regisztrálása során, próbáld meg újra"
+                if (response.status === StatusCodes.FORBIDDEN) {
+                    errorMessage.value = "Még nem lett elindítva a verseny";
+                }
+                else {
+                    errorMessage.value = "Hiba történt a csapat regisztrálása során, próbáld meg újra"
+                }
                 didEncounterError.value = true;
                 isRegistrationLoading.value = false;
             }

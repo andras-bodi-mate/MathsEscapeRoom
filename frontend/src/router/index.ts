@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteLocationNormalized } from 'vue-router';
+import { getApiBasePath } from '@/common/common.ts';
 import ExerciseView from '@/views/ExerciseView.vue';
 import RegistrationView from '@/components/Registration.vue';
 import ResultsView from '@/views/ResultsView.vue';
@@ -27,7 +28,10 @@ const routes = [
     component: ExerciseView,
     props: (route: RouteLocationNormalized) => ({
       level: Number(route.params.level)
-    })
+    }),
+    beforeEnter: async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
+    	return true;
+    }
   }
 ]
 
