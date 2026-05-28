@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
+from sqlalchemy import Column, DateTime
 from sqlmodel import SQLModel, Field
 
-from enums import Difficulty, GameStatus
+from src.enums import Difficulty, GameStatus
 
 class Exercise(SQLModel, table = True):
     __tablename__ = "Exercises"
@@ -17,7 +18,10 @@ class Team(SQLModel, table = True):
     name: str = Field(unique = True)
     difficulty: int = Field(nullable = False)
     currentLevel: int = Field(default = 1, nullable = False)
-    registrationTime: datetime = Field(default_factory = datetime.now, nullable = True)
+    registrationTime: str = Field(
+        default_factory = lambda: datetime.now(timezone.utc).isoformat(),
+        nullable = True
+    )
 
     def getDifficulty(self):
         return Difficulty(self.difficulty)

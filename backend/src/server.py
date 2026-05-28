@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import FastAPI, HTTPException, status, Header, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, FileResponse
@@ -5,21 +7,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 
-from core import Core
-from models import (
+from src.core import Core
+from src.models import (
     Team
 )
-from enums import (
+from src.enums import (
     Difficulty,
     GameStatus,
     AnswerResponse
 )
-from exeptions import (
+from src.exeptions import (
     InvalidAnswerError,
     GameNotStartedError,
     ForbiddenError
 )
-from schemas import (
+from src.schemas import (
     Answer,
     TeamNameAvailabilityQuery,
     TeamRegistrationInfo,
@@ -32,7 +34,7 @@ from schemas import (
     ExerciseModificationInfo,
     GameControlInfo
 )
-from databaseManager import DatabaseManager
+from src.databaseManager import DatabaseManager
 
 class Server:
     # solutions = {
@@ -239,6 +241,7 @@ class Server:
                     "uuid": team.uuid,
                     "name": team.name,
                     "difficulty": team.getDifficulty(),
+                    "registrationTime": datetime.fromisoformat(team.registrationTime),
                     "currentLevel": team.currentLevel,
                     "lastLevel": team.getLastLevel()
                 }

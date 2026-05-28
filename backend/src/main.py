@@ -2,9 +2,9 @@ from pathlib import Path
 
 import uvicorn
 
-from logger import Logger
-from server import Server
-from core import Core
+from src.logger import Logger
+from src.server import Server
+from src.core import Core
 
 def main():
     Logger.logInfo("Program started")

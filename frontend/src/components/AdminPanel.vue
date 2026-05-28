@@ -241,6 +241,11 @@
             key: "difficulty"
         },
         {
+            title: "Regisztráció időpontja",
+            value: item => new Date(item.registrationTime).toLocaleString(),
+            key: "registrationTime"
+        },
+        {
             title: "Aktuális feladat",
             value: item => item.currentLevel <= difficultyNumLevels[item.difficulty] ? item.currentLevel : "Végzett",
             key: "currentLevel"

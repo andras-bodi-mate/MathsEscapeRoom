@@ -2,18 +2,18 @@ from pathlib import Path
 
 from sqlmodel import SQLModel, Session, create_engine, select, exists
 
-from models import (
+from src.models import (
     Exercise,
     Team,
     GameState
 )
-from schemas import (
+from src.schemas import (
     Answer
 )
-from enums import (
+from src.enums import (
     GameStatus
 )
-from exeptions import (
+from src.exeptions import (
     InvalidTokenError,
     InvalidAnswerError,
     InvalidLevelError,
