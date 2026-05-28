@@ -139,7 +139,10 @@ class Server:
         @self.app.post("/check")
         async def checkAnswer(answer: Answer, token: str = Header(alias = "Authorization")):
             with self.databaseManager.getSession() as session:
-                self.databaseManager.checkStatus(session)
+                try:
+                    self.databaseManager.checkStatus(session)
+                except GameNotStartedError:
+                    raise HTTPException(status_code = status.HTTP_403_FORBIDDEN, detail = "GAME_NOT_STARTED")
                 self.databaseManager.checkToken(session, token)
                 team = self.databaseManager.getTeamByToken(session, token)
 

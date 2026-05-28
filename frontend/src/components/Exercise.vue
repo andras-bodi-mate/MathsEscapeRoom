@@ -130,6 +130,11 @@
         didEncounterError.value = true;
     }
 
+    function showGameFinishedSnackbar() {
+        errorMessage.value = "A játék nincs még elindítva, vagy már befelyeződött";
+        didEncounterError.value = true;
+    }
+
     function couldntGetTeamInfo() {
         errorMessage.value = "Hiba történt a csapat lekérdezése közben, frissítsd újra az oldalt";
         didEncounterError.value = true;
@@ -232,12 +237,16 @@
             signal: AbortSignal.timeout(5000)
         }).then(
             async (response) => {
+                const result = await response.json();
                 if (!response.ok) {
                     isCheckingSolution.value = false;
-                    couldntSendAnswer();
+                    if (result?.detail === "GAME_NOT_STARTED") {
+                        showGameFinishedSnackbar();
+                    } else {
+                        couldntSendAnswer();
+                    }
                     return;
                 }
-                const result = await response.json();
                 isCheckingSolution.value = false;
                 answerResponse.value = result.result;
                 isAnswerCheckPopupOpen.value = true;
