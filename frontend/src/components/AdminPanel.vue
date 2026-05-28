@@ -123,9 +123,11 @@
                         <v-number-input
                             v-model="modifiedTeam.currentLevel"
                             label="Új aktuális feladat"
+                            controlVariant="stacked"
                             :min="1"
                             :max="difficultyNumLevels[modifiedTeam.difficulty]"
                             :disabled="isFinished || isTeamModificationLoading"
+                            inset
                         >
                         </v-number-input>
                         <v-checkbox
@@ -167,8 +169,10 @@
                     <v-number-input
                         v-model="modifiedExercise.level"
                         label="Új sorszám"
+                        controlVariant="stacked"
                         :min="1"
                         :disabled="isExerciseModificationLoading"
+                        inset
                     >
                     </v-number-input>
                     <v-text-field
@@ -182,9 +186,11 @@
                     <v-number-input
                         v-model="modifiedExercise.solution"
                         label="Új megoldás"
+                        controlVariant="stacked"
                         :min="1000"
                         :max="9999"
                         :disabled="isExerciseModificationLoading"
+                        inset
                     >
                     </v-number-input>
                 </v-form>

@@ -177,6 +177,16 @@ class Server:
             else:
                 raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Couldn't find exercise")
             
+        @self.app.post("/title")
+        async def getExerciseTitle(exerciseQuery: ExerciseQuery, token: str = Header(alias = "Authorization")):
+            with self.databaseManager.getSession() as session:
+                self.databaseManager.checkExerciseAccess(session, exerciseQuery.level, token)
+                exercise = self.databaseManager.getExerciseByLevel(session, exerciseQuery.level)
+                
+            return {
+                "title": exercise.title
+            }
+            
         @self.app.post("/teams/delete")
         async def deleteTeam(teamDeletionRequest: TeamDeletionInfo):
             with self.databaseManager.getSession() as session:

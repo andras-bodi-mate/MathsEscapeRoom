@@ -1,6 +1,6 @@
 <template>
     <div class="d-flex flex-column align-center justify-top mt-5 pa-5">
-        <h1 class="ma-0">{{ level }}. Feladat</h1>
+        <h1 class="ma-0 text-center">{{ level }}. Feladat - {{ exerciseTitle }}</h1>
         <div v-if="teamInfo" class="d-flex flex-column align-center justify-top mt-2 ">
             <p class="ma-0">Csapatnév: {{ teamInfo.teamName }}</p>
             <p class="ma-0">Kiválasztott nehézség: {{ difficultyDescriptions[teamInfo.difficulty] }}</p>
@@ -113,6 +113,7 @@
     const errorMessage = ref("");
 
     onMounted(async () => {
+        await getExerciseTitle();
         await getTeamInfo();
         await getExercise();
     });
@@ -155,12 +156,36 @@
                     window.location.href = `/feladat/${result.currentLevel}`;
                 }
                 teamInfo.value = result;
-                console.log(result);
                 isLoadingTeamInfo.value = false;
             }
         },
         (error) => {
             couldntGetTeamInfo();
+        });
+    }
+
+    async function getExerciseTitle() {
+        await fetch(new URL("/title", apiBasePath), {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": teamToken
+            },
+            body: JSON.stringify({
+                level: props.level
+            }),
+            signal: AbortSignal.timeout(5000)
+        }).then(async (response) => {
+            if (!response.ok) {
+                couldntGetExercise();
+            }
+            else {
+                const result = await response.json();
+                exerciseTitle.value = result.title;
+            }
+        },
+        (error) => {
+            couldntGetExercise();
         });
     }
 
@@ -215,7 +240,6 @@
                 const result = await response.json();
                 isCheckingSolution.value = false;
                 answerResponse.value = result.result;
-                console.log("Answer response:", answerResponse.value);
                 isAnswerCheckPopupOpen.value = true;
             },
             (error) => {

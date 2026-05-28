@@ -3,7 +3,7 @@
         <h1>Regisztráció</h1>
         <v-container>
             <v-row justify="center">
-                <v-col cols="11" md="10" lg="6">
+                <v-col cols="11" lg="5">
                     <v-form ref="form" @submit.prevent="submit">
                         <v-text-field
                             v-model="teamName"

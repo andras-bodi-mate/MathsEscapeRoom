@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from sqlmodel import SQLModel, Field
 
@@ -16,6 +17,7 @@ class Team(SQLModel, table = True):
     name: str = Field(unique = True)
     difficulty: int = Field(nullable = False)
     currentLevel: int = Field(default = 1, nullable = False)
+    registrationTime: datetime = Field(default_factory = datetime.now, nullable = True)
 
     def getDifficulty(self):
         return Difficulty(self.difficulty)
